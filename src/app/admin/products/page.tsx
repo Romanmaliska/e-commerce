@@ -45,6 +45,8 @@ async function ProductTable() {
     return <p>No products found. </p>;
   }
 
+  console.log(products);
+
   return (
     <Table>
       <TableHeader>
