@@ -12,10 +12,10 @@ datasource db {
 model Product {
   id                     String                 @id @default(uuid())
   name                   String
+  description            String
   priceInCents           Int
   filePath               String
-  imagePaths             String
-  description            String
+  imagePath              String
   isAvailableForPurchase Boolean
   orders                 Order[]
   downloadVerifications  DownloadVerification[]
