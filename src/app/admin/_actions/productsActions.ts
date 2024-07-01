@@ -33,7 +33,6 @@ export async function addProduct(prevState: unknown, formData: FormData) {
   );
 
   if (!productData.success) {
-    console.log(productData.error.formErrors.fieldErrors);
     return productData.error.formErrors.fieldErrors;
   }
 
@@ -44,8 +43,11 @@ export async function addProduct(prevState: unknown, formData: FormData) {
   await fs.writeFile(filePath, Buffer.from(await file.arrayBuffer()));
 
   await fs.mkdir(`public/products`, { recursive: true });
-  const imagePath = `public/products/${crypto.randomUUID()}-${image.name}`;
-  await fs.writeFile(imagePath, Buffer.from(await image.arrayBuffer()));
+  const imagePath = `products/${crypto.randomUUID()}-${image.name}`;
+  await fs.writeFile(
+    `public/${imagePath}`,
+    Buffer.from(await image.arrayBuffer())
+  );
 
   await db.product.create({
     data: {
@@ -88,13 +90,22 @@ export async function deleteProduct(productId: string) {
   if (product === null) return notFound();
 
   await fs.unlink(product.filePath);
-  await fs.unlink(product.imagePath);
+  await fs.unlink(`public/${product.imagePath}`);
 
   revalidatePath("/admin/products");
 }
 
-export async function updateProduct(productId: string, formData: FormData) {
-  const productData = productSchema.safeParse(
+const updateProductSchema = productSchema.extend({
+  file: baseFileSchema.optional(),
+  image: imageSchema.optional(),
+});
+
+export async function updateProduct(
+  productId: string,
+  prevState: unknown,
+  formData: FormData
+) {
+  const productData = updateProductSchema.safeParse(
     Object.fromEntries(formData.entries())
   );
 
@@ -104,22 +115,27 @@ export async function updateProduct(productId: string, formData: FormData) {
 
   const { name, description, priceInCents, file, image } = productData.data;
 
-  const product = await db.product.findUnique({
+  const productToUpdate = await db.product.findUnique({
     where: { id: productId },
   });
 
-  if (!product) {
-    return { id: "Product not found" };
-  }
+  if (!productToUpdate) return notFound();
 
-  const filePath = product.filePath;
-  if (file.size > 0) {
+  let filePath = productToUpdate.filePath;
+  if (file && file.size > 0) {
+    await fs.unlink(productToUpdate.filePath);
+    filePath = `products/${crypto.randomUUID()}-${file.name}`;
     await fs.writeFile(filePath, Buffer.from(await file.arrayBuffer()));
   }
 
-  const imagePath = product.imagePath;
-  if (image.size > 0) {
-    await fs.writeFile(imagePath, Buffer.from(await image.arrayBuffer()));
+  let imagePath = productToUpdate.imagePath;
+  if (image && image.size > 0) {
+    await fs.unlink(`public/${productToUpdate.imagePath}`);
+    imagePath = `products/${crypto.randomUUID()}-${image.name}`;
+    await fs.writeFile(
+      `public/${imagePath}`,
+      Buffer.from(await image.arrayBuffer())
+    );
   }
 
   await db.product.update({
@@ -128,6 +144,8 @@ export async function updateProduct(productId: string, formData: FormData) {
       name,
       description,
       priceInCents,
+      ...(file ? { filePath } : {}),
+      ...(image ? { imagePath } : {}),
     },
   });
 

@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import Image from "next/image";
 
-import { addProduct } from "@/app/admin/_actions/productsActions";
+import {
+  addProduct,
+  updateProduct,
+} from "@/app/admin/_actions/productsActions";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +22,10 @@ export default function ProductForm({ product }: { product?: Product | null }) {
     product?.priceInCents
   );
 
-  console.log(product == null);
-  const [error, formAction] = useFormState(addProduct, {});
+  const [error, formAction] = useFormState(
+    product ? updateProduct.bind(null, product.id) : addProduct,
+    {}
+  );
 
   return (
     <form action={formAction} className="space-y-8">
@@ -48,7 +54,7 @@ export default function ProductForm({ product }: { product?: Product | null }) {
           <div className="text-destructive">{error.priceInCents}</div>
         )}
         <div className="text-muted-foreground">
-          {formatCurrency(priceInCents || 0 / 100)}
+          {formatCurrency((priceInCents || 0) / 100)}
         </div>
       </div>
       <div className="space-y-2">
@@ -65,13 +71,24 @@ export default function ProductForm({ product }: { product?: Product | null }) {
       </div>
       <div className="space-y-2">
         <Label htmlFor="file">File</Label>
-        <Input id="file" type="file" name="file" required={product == null} />
+        <Input id="file" type="file" name="file" required={!product} />
+        {product && (
+          <div className="text-muted-foreground">{product.filePath}</div>
+        )}
         {error?.file && <div className="text-destructive">{error.file}</div>}
       </div>
       <div className="space-y-2">
         <Label htmlFor="image">Image</Label>
-        <Input id="image" type="file" name="image" required={product == null} />
+        <Input id="image" type="file" name="image" required={!product} />
         {error?.image && <div className="text-destructive">{error.image}</div>}
+        {product && (
+          <Image
+            src={`/${product.imagePath}`}
+            alt={product.name}
+            width="400"
+            height="400"
+          />
+        )}
       </div>
       <SubmitButton />
     </form>
@@ -82,7 +99,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Saving" : "save"}
+      {pending ? "Saving" : "Save"}
     </Button>
   );
 }
